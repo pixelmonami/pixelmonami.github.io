@@ -1,0 +1,75 @@
+We need the following matrices
+1) Nutrient matrix
+2) Sunlight matrix
+3) Water matrix
+4) Age matrix
+
+Values of each element of the matrices range between 0 and 1
+Normalization will be done by linear interpolation or sigmoid curve
+This function has to be decided experimentally, whichever gives better results
+
+In age matrix 1 means there is no tree in that cell
+In age matrix >.8 means the tree is decaying
+All matrices will update every iteration
+Number of trees we consider "adjacent" has to be set before simulation 
+
+- Nutrient Matrix -
+--Soil nutrient will decrease if there are more trees in the vicinity competing for resources
+--The further the competitor, the lesser the competition
+--Decaying trees increase soil nutrient over time
+
+nutrientConsumption = 0
+nutrientSupply = 0
+for each tree in adjacent trees:
+	distanceFactor = distance from i,j
+	// Dead trees don't consume, middle aged trees consume most
+	nutrientConsumption += if age of an adjacent tree > .8 0. else gaussian(tree.age * 10/8)/distanceFactor 
+	// Nutrients supplied by dead trees decrease over time
+	nutrientSupply += (if age of an adjacent tree > .8 then 1-(age-.8 * 5) else 0)/distanceFactor 
+
+nutrient[i][j] = normalize(nutrientSupply - nutrientConsumption) // Limit between 0 and 1
+
+- Sunlight matrix -
+-- Sunlight depends on number of adjacent trees, their age and distance
+
+cumulativeFactor = 0
+for each tree in adjacent trees
+	ageFactor = normalizedGaussian(tree.age)
+	// If the gaussian distribution does not work as expected we can try a linear function
+	//ageFactor = if tree.age > .8 then (1-tree.age*5) else tree.age * 10/8
+	distanceFactor = 1/distance of it from i,j
+	cumulativeFactor += ageFactor + distanceFactor
+
+sunlight[i][j] = 1 - normalize(cumulativeFactor)
+
+- Water matrix -
+--The further the competitor, the lesser the competition
+--Older trees consume more water
+
+cumulativeFactor = 0
+for each tree in adjacent trees
+	distanceFactor = 1/distance of it from i,j
+	// Older trees consume more water but dead trees do not consume water
+	ageFactor = if tree.age > .8 then 0 else sigmoid(tree.age*10/8) 
+	cumulativeFactor += distanceFactor + ageFactor
+	
+water[i][j] = 1 - normalize(cumulativeFactor) 
+
+- Age matrix -
+--Every iteration increment age by a random value in a range
+--If the tree is unhealthy, have a shorter life
+health = nutrient[i][j] * water[i][j] * sunlight[i][j]
+if age[i][j] is not 1 then age[i][j] += (1/heath) + value between .001 and .005 or something IDK
+
+- Chance of birth -
+--If there are no trees in the forest, age[i][j] for all i,j is 1 (totally decayed)
+--If a tree is born, we say age[i][j] = 0
+--chance depends on reproductive capability of adjacent tree and their distance
+cumulativeChance = 0
+for each tree in adjacent trees
+	// Assuming middle aged trees are more reproductive
+	ageFactor = if tree.age > .8 then 0 else gaussian(tree.age * 10/8)
+	distanceFactor = 1/(distance of tree from i,j)
+	cumulativeChance += ageFactor + distanceFactor
+
+if Math.random() < normalize(cumulativeChance) then age[i][j] = 0
